@@ -1,14 +1,15 @@
-const versCache = 'v1';
+//set up cache name and create array of files to be cached
+const cacheName = "v1";
 
 const cacheFiles = [
     '/',
     '/index.html',
-    'restaurant.html',
+    '/restaurant.html',
     '/css/styles.css',
+    '/data/restaurants.json',
     '/js/dbhelper.js',
     '/js/main.js',
     '/js/restaurant_info.js',
-    '/data/restaurants.json',
     'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.3.1/dist/leaflet.js',
     '/img/1.jpg',
@@ -23,79 +24,39 @@ const cacheFiles = [
     '/img/10.jpg'
 ];
 
-//console.log('Service Worker Registered Successfully');
+//install service worker
+self.addEventListener('install', e => {
+    console.log('Service Worker: Installed');
+});
 
-self.addEventListener('install', function (e){
+//activate service worker
+self.addEventListener('activate', e => {
+    console.log('Service Worker: Activated');
     e.waitUntil(
-        caches.open(versCache).then(function(cache) {
-            return cache.addAll(cacheFiles);
-        })
-    );
-})
-
-self.addEventListener('activate', function(e){
-    console.log('Service Worker is Activated');
-    e.waitUntil(
-        caches.keys().then(function(cacheNames) {
+        caches.keys().then(cacheNames => {
             return Promise.all(
-                cacheNames.filter(function(cacheName) {
-                    return cacheName.startsWith('') && cacheName !== versCache;
-                }).map(function(cacheName){
-                    return caches.delete(cacheName);
+                cacheNames.map(cache => {
+                    if (cache !== cacheName){
+                        console.log('Service Worker:Cleared');
+                        return caches.delete(cache);
+                    }
                 })
-            )
+            );
         })
     )
-})
-
-
-self.addEventListener('fetch', function(e){
+});
+//service worker fetching
+self.addEventListener('fetch', e => {
+    console.log('Service Worker:Fetching');
     e.respondWith(
-        caches.match(e.request).then(function(res){
-            if(res) {
-                return res;
-            }
-            const url = e.request.clone();
-            return fetch(url).then(function(res){
-                if(!res || res.status !== 200 || res.type !== 'basic'){
-                    return res;
-                }
-                const response = res.clone();
-                caches.open(versCache).then(function(cache){
-                    cache.put(e.request, response);
-                });
-                return res;
-            })
-        })
-    )
-})
-/*self.addEventListener('fetch', function(e){
-    e.respondWith(
-        caches.match(e.request).then(function(response){
-            if (response) {
-                return response;
-            }
-
-            const clonedResponse = response.clone();
-            caches.open(versCache).then(function(cache) {
-                cache.put(e.request, response);
+        fetch(e.request)
+        .then(res => {
+            const resClone = res.clone();
+            caches.open(cacheName).then(cache => {
+                cache.put(e.request, resClone);
             });
-
-            return response;
-            /*else {
-                console.log('Could not find ', e.request, ' in cache, FETCHING!');
-                return fetch(e.request)
-                .then(function(response) {
-                    const clonedResponse = response.clone();
-                    caches.open(versCache).then(function(cache) {
-                        cache.put(e.request, clonedResponse);
-                    })
-                    return response;
-                })
-                .catch(function(err) {
-                    console.error(err);
-                });
-            }
+            return res;
         })
-    )
-})*/
+        .catch(err => caches.match(e.request).then(res => res))
+    );
+});
