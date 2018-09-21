@@ -1,12 +1,4 @@
-console.log('Service Worker Registered Successfully');
-
-self.addEventListener('install', function (e){
-    e.waitUntil(
-        caches.open('v1').then(function(cache) {
-            return cache.addAll(cacheFiles);
-        })
-    );
-})
+const versCache = 'v1';
 
 const cacheFiles = [
     '/',
@@ -17,6 +9,8 @@ const cacheFiles = [
     '/js/main.js',
     '/js/restaurant_info.js',
     '/data/restaurants.json',
+    'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css',
+    'https://unpkg.com/leaflet@1.3.1/dist/leaflet.js',
     '/img/1.jpg',
     '/img/2.jpg',
     '/img/3.jpg',
@@ -29,19 +23,71 @@ const cacheFiles = [
     '/img/10.jpg'
 ];
 
+//console.log('Service Worker Registered Successfully');
+
+self.addEventListener('install', function (e){
+    e.waitUntil(
+        caches.open(versCache).then(function(cache) {
+            return cache.addAll(cacheFiles);
+        })
+    );
+})
+
+self.addEventListener('activate', function(e){
+    console.log('Service Worker is Activated');
+    e.waitUntil(
+        caches.keys().then(function(cacheNames) {
+            return Promise.all(
+                cacheNames.filter(function(cacheName) {
+                    return cacheName.startsWith('') && cacheName !== versCache;
+                }).map(function(cacheName){
+                    return caches.delete(cacheName);
+                })
+            )
+        })
+    )
+})
+
+
 self.addEventListener('fetch', function(e){
+    e.respondWith(
+        caches.match(e.request).then(function(res){
+            if(res) {
+                return res;
+            }
+            const url = e.request.clone();
+            return fetch(url).then(function(res){
+                if(!res || res.status !== 200 || res.type !== 'basic'){
+                    return res;
+                }
+                const response = res.clone();
+                caches.open(versCache).then(function(cache){
+                    cache.put(e.request, response);
+                });
+                return res;
+            })
+        })
+    )
+})
+/*self.addEventListener('fetch', function(e){
     e.respondWith(
         caches.match(e.request).then(function(response){
             if (response) {
-                console.log('Found ', e.request, ' in cache');
-                return repsonse;
+                return response;
             }
-            else {
+
+            const clonedResponse = response.clone();
+            caches.open(versCache).then(function(cache) {
+                cache.put(e.request, response);
+            });
+
+            return response;
+            /*else {
                 console.log('Could not find ', e.request, ' in cache, FETCHING!');
                 return fetch(e.request)
                 .then(function(response) {
                     const clonedResponse = response.clone();
-                    caches.open('v1').then(function(cache) {
+                    caches.open(versCache).then(function(cache) {
                         cache.put(e.request, clonedResponse);
                     })
                     return response;
@@ -52,4 +98,4 @@ self.addEventListener('fetch', function(e){
             }
         })
     )
-})
+})*/
